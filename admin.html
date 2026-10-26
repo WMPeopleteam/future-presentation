@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>투표 관리자</title>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+:root { --primary:#17395f; --primary-light:#255a8d; --accent:#f59b2f; --text:#1f2937; --text-sub:#6b7280; --border:#dbe2ea; --success:#16a34a; --danger:#dc2626; --gold:#f5b301; --silver:#a8b3c1; --bronze:#c47a3a; }
+body { font-family:'Malgun Gothic','Apple SD Gothic Neo',-apple-system,sans-serif; color:var(--text); min-height:100vh; background:linear-gradient(180deg,#f8fafc 0%,#f3f5f9 44%,#eef2f7 100%); }
+button { font-family:inherit; }
+.hidden { display:none !important; }
+.app-header { background:rgba(23,57,95,.97); color:#fff; padding:12px 22px; display:flex; justify-content:space-between; align-items:center; gap:10px; position:sticky; top:0; z-index:100; box-shadow:0 10px 26px rgba(15,23,42,.16); }
+.app-header h1 { font-size:1rem; }
+.btn-hdr { white-space:nowrap; padding:5px 13px; border-radius:999px; border:1.5px solid rgba(255,255,255,.3); background:transparent; color:#fff; font-size:.8rem; font-weight:600; cursor:pointer; }
+.btn { padding:10px 18px; border:none; border-radius:10px; font-size:.9rem; font-weight:700; cursor:pointer; }
+.btn:disabled { opacity:.45; cursor:not-allowed; }
+.btn-primary { background:var(--primary); color:#fff; }
+.btn-primary:hover:not(:disabled) { background:var(--primary-light); }
+.btn-ghost { background:#fff; color:var(--primary); border:1.5px solid #b8c5d5; }
+.btn-ghost:hover { border-color:var(--primary); }
+.btn-sm { padding:7px 13px; font-size:.82rem; }
+.btn-full { width:100%; }
+.login-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px 16px; }
+.form-card { width:min(100%,400px); background:#fff; border-radius:18px; padding:34px 28px; box-shadow:0 14px 36px rgba(31,41,55,.1); border:1px solid rgba(219,226,234,.85); }
+.form-card h2 { text-align:center; color:var(--primary); font-size:1.3rem; margin-bottom:20px; }
+.fg { margin-bottom:14px; }
+.fg label { display:block; margin-bottom:6px; font-weight:700; font-size:.86rem; }
+.fg input { width:100%; padding:11px 14px; border:1.5px solid #d7dee8; border-radius:10px; font-size:.95rem; font-family:inherit; background:#fbfcfe; }
+.fg input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(245,155,47,.14); }
+.alert { padding:10px 14px; border-radius:10px; margin-bottom:14px; font-size:.86rem; line-height:1.55; }
+.alert-error { background:#fef2f2; border:1px solid #fca5a5; color:#b91c1c; }
+.alert-success { background:#f0fdf4; border:1px solid #86efac; color:#166534; }
+.back { display:block; text-align:center; margin-top:14px; font-size:.8rem; color:var(--text-sub); }
+
+.wrap { max-width:1080px; margin:0 auto; padding:24px 20px 60px; }
+.topbar { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+.topbar h2 { color:var(--primary); font-size:1.25rem; }
+.topbar .meta { font-size:.8rem; color:var(--text-sub); margin-top:3px; }
+.actions { display:flex; gap:8px; flex-wrap:wrap; }
+.stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:18px; }
+.stat { background:#fff; border-radius:14px; padding:16px; text-align:center; border:1px solid rgba(219,226,234,.85); box-shadow:0 6px 18px rgba(31,41,55,.05); }
+.stat .v { font-size:1.8rem; font-weight:800; color:var(--primary); font-variant-numeric:tabular-nums; }
+.stat .v small { font-size:.9rem; color:var(--text-sub); font-weight:600; }
+.stat .l { font-size:.78rem; color:var(--text-sub); margin-top:2px; }
+.progress { height:8px; background:#e8ecf2; border-radius:4px; overflow:hidden; margin-top:8px; }
+.progress div { height:100%; background:var(--success); border-radius:4px; }
+.tabs { display:flex; gap:4px; background:#e9edf3; border-radius:14px; padding:5px; margin-bottom:16px; }
+.tab { flex:1; padding:9px 10px; border:none; border-radius:10px; background:transparent; cursor:pointer; font-weight:700; font-size:.85rem; color:var(--text-sub); }
+.tab.active { background:#fff; color:var(--primary); box-shadow:0 8px 18px rgba(31,41,55,.1); }
+.box { background:#fff; border-radius:14px; overflow:hidden; border:1px solid rgba(219,226,234,.85); box-shadow:0 6px 18px rgba(31,41,55,.05); }
+.box-pad { padding:20px; }
+
+.rank-item { display:grid; grid-template-columns:52px 1fr 64px; gap:12px; align-items:center; padding:12px 16px; border-bottom:1px solid #f0f2f7; }
+.rank-item:last-child { border-bottom:none; }
+.rank-num { font-weight:800; font-size:1.05rem; color:var(--text-sub); text-align:center; }
+.rank-num.r1 { color:var(--gold); } .rank-num.r2 { color:var(--silver); } .rank-num.r3 { color:var(--bronze); }
+.rank-name { font-weight:800; font-size:.95rem; margin-bottom:6px; }
+.chip { display:inline-block; font-size:.68rem; font-weight:700; padding:2px 7px; border-radius:999px; margin-left:6px; vertical-align:2px; }
+.chip.hq { background:#eef2ff; color:#4338ca; } .chip.site { background:#ecfdf5; color:#047857; }
+.bar-bg { height:8px; background:#e8ecf2; border-radius:4px; overflow:hidden; }
+.bar-fill { height:100%; background:var(--primary); border-radius:4px; transition:width .6s ease; }
+.from { font-size:.74rem; color:var(--text-sub); margin-top:5px; }
+.rank-votes { font-weight:800; color:var(--primary); font-size:1.05rem; text-align:right; font-variant-numeric:tabular-nums; }
+.rank-votes span { font-size:.75rem; color:var(--text-sub); font-weight:600; }
+
+table { width:100%; border-collapse:collapse; font-size:.86rem; }
+th { background:var(--primary); color:#fff; font-weight:700; font-size:.8rem; text-align:left; padding:10px 12px; white-space:nowrap; }
+td { padding:10px 12px; border-bottom:1px solid #f0f2f7; vertical-align:middle; }
+tr:last-child td { border-bottom:none; }
+.badge { display:inline-block; padding:3px 9px; border-radius:999px; font-size:.74rem; font-weight:700; white-space:nowrap; }
+.badge.done { background:#dcfce7; color:#166534; } .badge.wait { background:#fef3c7; color:#92400e; }
+.muted { color:var(--text-sub); font-size:.8rem; }
+.table-scroll { overflow-x:auto; }
+.issue-result { margin-top:14px; padding:16px; border-radius:12px; background:#fff8ec; border:1px solid #ffd18a; }
+.issue-result .code { font-size:1.8rem; font-weight:800; letter-spacing:6px; color:var(--primary); margin:6px 0; }
+.note { font-size:.82rem; color:var(--text-sub); line-height:1.7; margin-bottom:14px; }
+
+.loading { position:fixed; inset:0; background:rgba(255,255,255,.8); z-index:900; display:none; align-items:center; justify-content:center; }
+.loading.active { display:flex; }
+.spinner { width:40px; height:40px; border:4px solid #e0e4ec; border-top-color:var(--primary); border-radius:50%; animation:spin .8s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+@media (max-width:640px){
+  .wrap { padding:18px 14px 50px; }
+  .stats { grid-template-columns:repeat(2,1fr); }
+  .rank-item { grid-template-columns:40px 1fr 52px; padding:11px 12px; }
+  th, td { padding:9px 8px; }
+  .hide-m { display:none; }
+}
+</style>
+</head>
+<body>
+<div class="loading" id="loading"><div class="spinner"></div></div>
+
+<div id="view-login" class="login-wrap">
+  <div class="form-card">
+    <h2>관리자 로그인</h2>
+    <div class="alert alert-error hidden" id="login-err"></div>
+    <div class="fg">
+      <label for="inp-code">관리자 코드</label>
+      <input type="password" id="inp-code" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()">
+    </div>
+    <button class="btn btn-primary btn-full" onclick="login()">로그인</button>
+    <a class="back" href="index.html">← 투표 화면으로</a>
+  </div>
+</div>
+
+<div id="view-admin" class="hidden">
+  <header class="app-header">
+    <h1>미래성장발표회 투표 · 관리자</h1>
+    <button class="btn-hdr" onclick="logout()">로그아웃</button>
+  </header>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <h2>투표 현황</h2>
+        <div class="meta" id="meta"></div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-ghost btn-sm" onclick="load()">새로고침</button>
+        <button class="btn btn-ghost btn-sm" onclick="downloadCSV()">엑셀(CSV) 다운로드</button>
+      </div>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="tabs">
+      <button class="tab active" data-t="t-rank" onclick="tab(this)">득표 순위</button>
+      <button class="tab" data-t="t-voters" onclick="tab(this)">투표자 현황</button>
+      <button class="tab" data-t="t-issue" onclick="tab(this)">인증번호 발급</button>
+    </div>
+    <div id="t-rank" class="box"></div>
+    <div id="t-voters" class="box hidden"><div class="table-scroll"><table>
+      <thead><tr><th>No.</th><th>성명</th><th class="hide-m">소속</th><th>상태</th><th>선택한 발표</th><th class="hide-m">제출 시각</th></tr></thead>
+      <tbody id="voter-rows"></tbody></table></div></div>
+    <div id="t-issue" class="box box-pad hidden">
+      <p class="note">인증 메일을 받지 못한 발표자에게 인증번호를 직접 전달할 때 사용합니다. 메일은 발송되지 않으며, 발급한 번호는 10분간 유효합니다. 발표자는 로그인 화면에서 이메일 입력 후 ‘관리자에게 받은 인증번호가 있어요’를 누르고 입력하면 됩니다. 테스트 로그인에도 쓸 수 있습니다.</p>
+      <div class="alert alert-error hidden" id="issue-err"></div>
+      <div class="fg" style="max-width:380px">
+        <label for="inp-issue">발표자 이메일</label>
+        <input type="email" id="inp-issue" placeholder="아이디@wm.co.kr" onkeydown="if(event.key==='Enter')issue()">
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="issue()">인증번호 발급</button>
+      <div id="issue-result" class="issue-result hidden"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══ 설정: index.html과 같은 Apps Script 웹 앱 URL ═══ */
+const API_URL = 'PASTE_YOUR_WEB_APP_URL_HERE';
+
+const KEY='fg21_admin_token';
+const store={ get(){ try{return sessionStorage.getItem(KEY)||'';}catch(e){return '';} }, set(v){ try{sessionStorage.setItem(KEY,v);}catch(e){} }, clear(){ try{sessionStorage.removeItem(KEY);}catch(e){} } };
+let token=store.get(), data=null, cdTimer=null;
+
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function loading(on){ $('loading').classList.toggle('active',on); }
+function msg(id,t){ const e=$(id); e.textContent=t||''; e.classList.toggle('hidden',!t); }
+const DAYS='일월화수목금토';
+function fmtDeadline(iso){ const d=new Date(iso); return `${d.getMonth()+1}월 ${d.getDate()}일 (${DAYS[d.getDay()]}) ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+function fmtAt(s){ const m=String(s||'').match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/); return m?`${+m[2]}/${+m[3]} ${m[4]}:${m[5]}`:(s||''); }
+function orgClass(o){ return o==='본사'?'hq':'site'; }
+
+async function api(action, body){
+  if (API_URL.indexOf('http')!==0) throw new Error('API_URL이 설정되지 않았습니다. (admin.html 상단)');
+  let r;
+  try { r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({action},body||{}))}); }
+  catch(e){ throw new Error('서버에 연결할 수 없습니다. 새로고침(Ctrl+Shift+R) 후 다시 시도해 주세요.'); }
+  const j=await r.json();
+  if (!j.ok){ if (j.error==='LOGIN_REQUIRED'){ logout(); throw new Error('로그인이 만료되었습니다.'); } throw new Error(j.error||'오류'); }
+  return j;
+}
+
+async function login(){
+  const code=$('inp-code').value;
+  if (!code) return;
+  msg('login-err'); loading(true);
+  try { const r=await api('adminLogin',{code}); token=r.token; store.set(token); await load(); }
+  catch(e){ msg('login-err',e.message); }
+  finally { loading(false); }
+}
+function logout(){ store.clear(); token=''; clearInterval(cdTimer); $('view-admin').classList.add('hidden'); $('view-login').classList.remove('hidden'); }
+
+async function load(){
+  loading(true);
+  try {
+    data=await api('adminData',{token});
+    $('view-login').classList.add('hidden'); $('view-admin').classList.remove('hidden');
+    render();
+  } catch(e){ if (token) alert(e.message); }
+  finally { loading(false); }
+}
+
+function render(){
+  const d=data;
+  $('meta').textContent=`${d.title} · 마감 ${fmtDeadline(d.deadline)} · 1인 ${d.picks}표(각 1점) · 조회 ${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
+  const pct=d.total?Math.round(d.votedCount/d.total*100):0;
+  $('stats').innerHTML=`
+    <div class="stat"><div class="v">${d.votedCount}<small> / ${d.total}</small></div><div class="l">참여 인원</div><div class="progress"><div style="width:${pct}%"></div></div></div>
+    <div class="stat"><div class="v">${d.total-d.votedCount}</div><div class="l">미참여</div></div>
+    <div class="stat"><div class="v">${d.votedCount*d.picks}</div><div class="l">총 득표</div></div>
+    <div class="stat"><div class="v" id="cd" style="font-size:1.25rem;padding-top:8px"></div><div class="l">${d.closed?'투표 마감됨':'마감까지'}</div></div>`;
+  clearInterval(cdTimer);
+  const tick=()=>{ const left=new Date(d.deadline)-new Date(); const el=$('cd'); if(!el) return;
+    if(left<=0){ el.textContent='마감'; return; }
+    const h=Math.floor(left/3600000), m=Math.floor(left%3600000/60000);
+    el.textContent= h>=24?`${Math.floor(h/24)}일 ${h%24}시간`:`${h}시간 ${m}분`; };
+  tick(); cdTimer=setInterval(tick,30000);
+
+  const max=Math.max(1,...d.tally.map(t=>t.votes));
+  $('t-rank').innerHTML=d.tally.map(t=>`
+    <div class="rank-item">
+      <div class="rank-num ${t.votes>0&&t.rank<=3?'r'+t.rank:''}">${t.rank}위</div>
+      <div>
+        <div class="rank-name">${esc(t.name)}<span class="chip ${orgClass(t.org)}">${esc(t.org)}</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${t.votes/max*100}%"></div></div>
+        <div class="from">${t.from.length?'투표: '+t.from.map(esc).join(', '):'득표 없음'}</div>
+      </div>
+      <div class="rank-votes">${t.votes}<span>표</span></div>
+    </div>`).join('');
+
+  $('voter-rows').innerHTML=d.voters.map(v=>`
+    <tr>
+      <td class="muted">${esc(v.no)}</td>
+      <td><strong>${esc(v.name)}</strong></td>
+      <td class="hide-m">${esc(v.org)}</td>
+      <td>${v.voted?'<span class="badge done">완료</span>':'<span class="badge wait">미참여</span>'}</td>
+      <td>${v.voted?v.picks.map(esc).join(', '):'<span class="muted">-</span>'}</td>
+      <td class="hide-m muted">${v.voted?esc(fmtAt(v.at))+(v.edits?` (수정 ${v.edits}회)`:''):''}</td>
+    </tr>`).join('');
+}
+
+function tab(btn){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b===btn));
+  ['t-rank','t-voters','t-issue'].forEach(id=>$(id).classList.toggle('hidden',id!==btn.dataset.t));
+}
+
+async function issue(){
+  const email=$('inp-issue').value.trim(); if(!email) return;
+  msg('issue-err'); $('issue-result').classList.add('hidden'); loading(true);
+  try {
+    const r=await api('adminIssueCode',{token,email});
+    $('issue-result').innerHTML=`<div><strong>${esc(r.name)}</strong> (${esc(r.email)})</div><div class="code">${esc(r.code)}</div><div class="muted">${r.minutes}분간 유효 · 새로 발급하면 이전 번호는 무효</div>`;
+    $('issue-result').classList.remove('hidden');
+  } catch(e){ msg('issue-err',e.message); }
+  finally { loading(false); }
+}
+
+function downloadCSV(){
+  if (!data) return;
+  const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const lines=[];
+  lines.push(['[득표 순위]'].map(q).join(','));
+  lines.push(['순위','성명','소속','득표','투표한 사람'].map(q).join(','));
+  data.tally.forEach(t=>lines.push([t.rank,t.name,t.org,t.votes,t.from.join(', ')].map(q).join(',')));
+  lines.push('');
+  lines.push(['[투표 내역]'].map(q).join(','));
+  lines.push(['성명','소속','상태','선택1','선택2','선택3','제출시각','수정횟수'].map(q).join(','));
+  data.voters.forEach(v=>lines.push([v.name,v.org,v.voted?'완료':'미참여',v.picks[0]||'',v.picks[1]||'',v.picks[2]||'',v.at,v.edits].map(q).join(',')));
+  const blob=new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  const t=new Date(); a.download=`미래성장발표회_투표결과_${t.getMonth()+1}${String(t.getDate()).padStart(2,'0')}_${String(t.getHours()).padStart(2,'0')}${String(t.getMinutes()).padStart(2,'0')}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+if (token) load();
+</script>
+</body>
+</html>
