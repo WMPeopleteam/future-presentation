@@ -99,9 +99,9 @@ button { font-family:inherit; }
 .view-btn:hover { background:#f1f5f9; border-color:var(--primary); }
 .view-btn:disabled { color:#9ca3af; cursor:not-allowed; background:#f8fafc; }
 .thumb { position:relative; aspect-ratio:16/9; margin:-4px -4px 10px; border-radius:10px; overflow:hidden; background:#eef2f7; border:1px solid #e5e9f0; }
-.thumb img { width:100%; height:100%; object-fit:contain; display:block; background:#fff; }
+.thumb img { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; display:block; background:#fff; }
 .thumb .ph { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:.74rem; color:#9ca3af; font-weight:600; }
-.thumb.loading .ph::before { content:''; width:18px; height:18px; border:2.5px solid #d1d9e4; border-top-color:#94a3b8; border-radius:50%; animation:spin .8s linear infinite; }
+.thumb.is-loading .ph::before { content:''; width:18px; height:18px; border:2.5px solid #d1d9e4; border-top-color:#94a3b8; border-radius:50%; animation:spin .8s linear infinite; }
 .thumb .zoom { position:absolute; right:6px; bottom:6px; border:none; background:rgba(15,23,42,.72); color:#fff; font-size:.7rem; font-weight:700; padding:4px 9px; border-radius:999px; cursor:zoom-in; font-family:inherit; }
 .thumb .zoom:hover { background:rgba(15,23,42,.9); }
 .check { z-index:2; position:absolute; top:10px; right:10px; width:24px; height:24px; border-radius:50%; background:var(--accent); color:#fff; font-size:.8rem; font-weight:800; display:none; align-items:center; justify-content:center; }
@@ -125,7 +125,8 @@ button { font-family:inherit; }
 .modal-hdr h3 { color:var(--primary); font-size:1rem; }
 .modal-close { background:none; border:none; font-size:1.5rem; line-height:1; cursor:pointer; color:var(--text-sub); padding:2px 6px; }
 .pdf-area { flex:1; overflow:auto; background:#525659; padding:14px; }
-.pdf-area canvas { display:block; width:100%; height:auto; margin:0 auto 12px; background:#fff; box-shadow:0 2px 10px rgba(0,0,0,.3); }
+.pdf-area { position:relative; padding:0 !important; }
+.pdf-area iframe { position:absolute; inset:0; width:100%; height:100%; border:0; background:#525659; }
 .pdf-status { color:#e5e7eb; text-align:center; padding:60px 16px; font-size:.92rem; line-height:1.7; }
 .modal-ftr { padding:10px 16px; border-top:1px solid var(--border); display:flex; gap:8px; justify-content:flex-end; align-items:center; flex-wrap:wrap; }
 .modal-ftr .page-info { margin-right:auto; font-size:.8rem; color:var(--text-sub); }
@@ -165,7 +166,6 @@ button { font-family:inherit; }
   .bar-right .btn { flex:1; }
   .modal-bg { padding:0; }
   .modal-box { height:100vh; height:100dvh; border-radius:0; }
-  .pdf-area { padding:8px; }
   .ty-picks { grid-template-columns:1fr; }
 }
 </style>
@@ -298,13 +298,11 @@ button { font-family:inherit; }
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 /* ═══ 설정: Apps Script 웹 앱 URL을 붙여넣으세요 (admin.html과 동일) ═══ */
 const API_URL = 'https://script.google.com/macros/s/AKfycbyloIsiFyJBY0bnZ6WLWih0y4VlCNx9QCg8u9ZbKKHO3UmqJTzr3fN1Mfmw1cKds0JuBg/exec';
 const DEFAULT_DEADLINE = '2026-10-27T10:00:00+09:00';
 
-if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 const TOKEN_KEY = 'fg21_vote_token';
 const store = {
@@ -318,8 +316,7 @@ let state = null;           // 서버에서 받은 투표자 상태
 let picks = [];             // 선택한 순번 목록
 let loginEmail = '';
 let resendTimer = null, cdTimer = null;
-let previewNo = null, renderSeq = 0;
-const pdfCache = {};
+let previewNo = null;
 
 /* ─── API ─── */
 async function api(action, data){
@@ -476,7 +473,7 @@ function renderVote(){
       const self = p.self && !state.allowSelf;
       return `<div class="ppt-card ${sel?'selected':''} ${self?'self':''} ${closed&&!self?'readonly':''}" data-no="${esc(p.no)}" onclick="toggle('${esc(p.no)}')" role="button" tabindex="${self?-1:0}" aria-pressed="${sel}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggle('${esc(p.no)}')}">
         <div class="check">✓</div>
-        <div class="thumb ${p.hasPdf?'loading':'none'}" data-thumb="${esc(p.no)}">${thumbHtml(p)}</div>
+        <div class="thumb ${p.hasPdf?'is-loading':'none'}" data-thumb="${esc(p.no)}">${thumbHtml(p)}</div>
         <div class="card-no">No.${esc(p.no)}</div>
         <div class="card-name">${esc(p.name)}<span class="chip ${self?'me':orgClass(p.org)}">${self?'본인':esc(p.org)}</span></div>
         <button class="view-btn" onclick="event.stopPropagation();openPreview('${esc(p.no)}')" ${p.hasPdf?'':'disabled'}>${p.hasPdf?'자료 보기':'자료 없음'}</button>
@@ -490,42 +487,15 @@ function renderVote(){
   $('vote-closed').classList.toggle('hidden', !closed);
   $('vote-guide').textContent = closed ? '투표가 마감되었습니다.' : '카드를 눌러 선택하고, ‘자료 보기’로 발표 자료를 확인할 수 있습니다.';
   renderBar();
-  loadThumbs();
 }
 
-/* ─── 첫 쪽 미리보기 ─── */
-const thumbCache = {};      // no -> dataURL ('' = 없음)
-let thumbQueueRunning = false;
+/* ─── 첫 쪽 미리보기 (드라이브 썸네일) ─── */
+function thumbUrl(p){ return `https://drive.google.com/thumbnail?id=${encodeURIComponent(p.fileId)}&sz=w640`; }
 function thumbHtml(p){
-  if (!p.hasPdf) return '<div class="ph">자료 없음</div>';
-  const u = thumbCache[p.no];
-  if (u) return `<img src="${u}" alt="${esc(p.name)} 발표 첫 쪽"><button class="zoom" onclick="event.stopPropagation();openPreview('${esc(p.no)}')" aria-label="${esc(p.name)} 발표 자료 크게 보기">🔍 크게</button>`;
-  return '<div class="ph"></div>';
-}
-function paintThumb(no){
-  document.querySelectorAll(`[data-thumb="${CSS.escape(String(no))}"]`).forEach(el=>{
-    const p=presenter(no); if(!p) return;
-    el.classList.remove('loading');
-    if (thumbCache[no]==='' ) { el.innerHTML='<div class="ph">자료 보기로 확인</div>'; return; }
-    el.innerHTML=thumbHtml(p);
-  });
-}
-async function loadThumbs(){
-  if (thumbQueueRunning || !state) return;
-  thumbQueueRunning = true;
-  const queue = state.presenters.filter(p=>p.hasPdf && thumbCache[p.no]===undefined).map(p=>String(p.no));
-  const worker = async ()=>{
-    while (queue.length && token){
-      const no = queue.shift();
-      try {
-        const r = await api('thumb', { token, no });
-        thumbCache[no] = r.data ? `data:${r.mime||'image/png'};base64,${r.data}` : '';
-      } catch(e){ thumbCache[no] = ''; }
-      paintThumb(no);
-    }
-  };
-  try { await Promise.all([worker(), worker(), worker(), worker()]); }
-  finally { thumbQueueRunning = false; }
+  if (!p.hasPdf || !p.fileId) return '<div class="ph">자료 없음</div>';
+  return `<div class="ph"></div><img src="${thumbUrl(p)}" alt="${esc(p.name)} 발표 첫 쪽" loading="lazy" referrerpolicy="no-referrer"
+    onload="this.parentNode.classList.remove('is-loading')" onerror="const t=this.parentNode;t.classList.remove('is-loading');t.querySelector('.ph').textContent='미리보기 없음 · 크게 보기로 확인';this.remove();"
+    ><button class="zoom" onclick="event.stopPropagation();openPreview('${esc(p.no)}')" aria-label="${esc(p.name)} 발표 자료 크게 보기">🔍 크게</button>`;
 }
 
 function toggle(no){
@@ -587,48 +557,18 @@ function showDone(justSubmitted){
   showView('view-done');
 }
 
-/* ─── PDF 미리보기 ─── */
-async function openPreview(no){
-  const p=presenter(no); if(!p) return;
+/* ─── 자료 보기 (드라이브 뷰어) ─── */
+function openPreview(no){
+  const p=presenter(no); if(!p || !p.fileId) return;
   previewNo=String(no);
   $('modal-title').textContent=`No.${p.no} ${p.name} — 발표 자료`;
-  $('page-info').textContent='';
+  $('page-info').innerHTML=`<a href="https://drive.google.com/file/d/${encodeURIComponent(p.fileId)}/view" target="_blank" rel="noopener" style="color:inherit">새 창으로 열기 ↗</a>`;
   updateModalBtn();
   $('modal').classList.add('active');
   document.body.style.overflow='hidden';
-  const area=$('pdf-area');
-  area.innerHTML='<div class="pdf-status"><div class="spinner" style="margin:0 auto 14px;border-color:#6b7280;border-top-color:#fff"></div>자료를 불러오는 중입니다.<br>용량에 따라 몇 초 걸릴 수 있습니다.</div>';
-  const seq=++renderSeq;
-  try {
-    if (!window.pdfjsLib) throw new Error('PDF 뷰어를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
-    if (!pdfCache[no]){
-      const r=await api('pdf',{ token, no });
-      const bin=atob(r.data); const bytes=new Uint8Array(bin.length);
-      for (let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
-      pdfCache[no]=bytes;
-    }
-    if (seq!==renderSeq) return;
-    const doc=await pdfjsLib.getDocument({ data: pdfCache[no].slice() }).promise;
-    if (seq!==renderSeq) return;
-    area.innerHTML='';
-    $('page-info').textContent=`총 ${doc.numPages}쪽`;
-    const width=Math.min(area.clientWidth-28, 1400);
-    const dpr=Math.min(window.devicePixelRatio||1, 2);
-    for (let i=1;i<=doc.numPages;i++){
-      if (seq!==renderSeq) return;
-      const page=await doc.getPage(i);
-      const vp0=page.getViewport({ scale:1 });
-      const vp=page.getViewport({ scale: (width/vp0.width)*dpr });
-      const c=document.createElement('canvas'); c.width=vp.width; c.height=vp.height;
-      c.style.maxWidth=width+'px';
-      area.appendChild(c);
-      await page.render({ canvasContext:c.getContext('2d'), viewport:vp }).promise;
-    }
-  } catch(e){
-    if (seq===renderSeq) area.innerHTML=`<div class="pdf-status">${esc(e.message)}</div>`;
-  }
+  $('pdf-area').innerHTML=`<div class="pdf-status">자료를 불러오는 중입니다…</div><iframe src="https://drive.google.com/file/d/${encodeURIComponent(p.fileId)}/preview" allow="autoplay" title="${esc(p.name)} 발표 자료"></iframe>`;
 }
-function closeModal(){ renderSeq++; $('modal').classList.remove('active'); $('pdf-area').innerHTML=''; document.body.style.overflow=''; previewNo=null; }
+function closeModal(){ $('modal').classList.remove('active'); $('pdf-area').innerHTML=''; document.body.style.overflow=''; previewNo=null; }
 function updateModalBtn(){
   if (!previewNo || !state) return;
   const b=$('modal-sel'); const p=presenter(previewNo);
