@@ -211,7 +211,18 @@ button { font-family:inherit; }
       <button class="btn btn-primary btn-full" id="btn-req" onclick="requestCode()">인증번호 받기</button>
       <div class="row-between">
         <button class="link-btn" onclick="showView('view-landing')">← 처음으로</button>
-        <button class="link-btn" onclick="showCodeStep(true)">관리자에게 받은 인증번호가 있어요</button>
+        <button class="link-btn" onclick="showIssuedStep()">관리자에게 받은 번호가 있어요</button>
+      </div>
+    </div>
+
+    <div id="step-issued" class="hidden">
+      <div class="fg">
+        <label for="inp-issued">관리자에게 받은 번호 8자리</label>
+        <input type="text" id="inp-issued" class="code-input" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="••••••••" onkeydown="if(event.key==='Enter')verifyIssued()">
+      </div>
+      <button class="btn btn-primary btn-full" onclick="verifyIssued()">확인</button>
+      <div class="row-between">
+        <button class="link-btn" onclick="showEmailStep()">← 이메일로 인증하기</button>
       </div>
     </div>
 
@@ -225,7 +236,7 @@ button { font-family:inherit; }
         <button class="link-btn" onclick="showEmailStep()">← 이메일 다시 입력</button>
         <button class="link-btn" id="btn-resend" onclick="requestCode()">인증번호 재발송</button>
       </div>
-      <p class="hint" style="margin-top:12px;line-height:1.6">메일이 안 보이면 스팸함을 확인해 주세요. 계속 오지 않으면 피플팀에 문의하시면 인증번호를 직접 알려드립니다.</p>
+      <p class="hint" style="margin-top:12px;line-height:1.6">메일이 안 보이면 스팸함을 확인해 주세요. 계속 오지 않으면 피플팀에 문의하시면 로그인 번호를 직접 알려드립니다.</p>
     </div>
   </div>
 </section>
@@ -368,18 +379,30 @@ function goLogin(){
   showView('view-login'); showEmailStep();
 }
 function showEmailStep(){
-  $('step-email').classList.remove('hidden'); $('step-code').classList.add('hidden');
+  $('step-email').classList.remove('hidden'); $('step-code').classList.add('hidden'); $('step-issued').classList.add('hidden');
   msg('login-err'); msg('login-info');
   $('login-sub').textContent='회사 이메일로 인증번호를 보내드립니다.';
   setTimeout(()=>$('inp-email').focus(),50);
 }
-function showCodeStep(manual){
-  if (manual){
-    const e=$('inp-email').value.trim();
-    if (!e){ msg('login-err','먼저 회사 이메일을 입력해 주세요.'); $('inp-email').focus(); return; }
-    loginEmail=e;
-    msg('login-info', '관리자에게 받은 인증번호를 입력해 주세요.');
-  }
+function showIssuedStep(){
+  msg('login-err'); msg('login-info');
+  $('login-sub').textContent='관리자에게 받은 번호만 입력하면 바로 투표할 수 있습니다.';
+  $('step-email').classList.add('hidden'); $('step-code').classList.add('hidden'); $('step-issued').classList.remove('hidden');
+  $('inp-issued').value=''; setTimeout(()=>$('inp-issued').focus(),50);
+}
+async function verifyIssued(){
+  const code=$('inp-issued').value.replace(/\D/g,'');
+  if (code.length!==8){ msg('login-err','관리자에게 받은 8자리 번호를 입력해 주세요.'); return; }
+  msg('login-err'); loading(true,'확인 중...');
+  try {
+    const r=await api('verifyIssuedCode',{ code });
+    token=r.token; store.set(token);
+    applyState(r);
+    r.myVote ? showDone() : showVote();
+  } catch(e){ msg('login-err', e.message); }
+  finally { loading(false); }
+}
+function showCodeStep(){
   msg('login-err');
   $('step-email').classList.add('hidden'); $('step-code').classList.remove('hidden');
   $('inp-code').value=''; setTimeout(()=>$('inp-code').focus(),50);
