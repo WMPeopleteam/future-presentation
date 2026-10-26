@@ -98,7 +98,13 @@ button { font-family:inherit; }
 .view-btn { width:100%; padding:7px; border:1.5px solid #d8e0ea; background:#fff; border-radius:9px; font-size:.8rem; font-weight:700; color:var(--primary); cursor:pointer; }
 .view-btn:hover { background:#f1f5f9; border-color:var(--primary); }
 .view-btn:disabled { color:#9ca3af; cursor:not-allowed; background:#f8fafc; }
-.check { position:absolute; top:10px; right:10px; width:24px; height:24px; border-radius:50%; background:var(--accent); color:#fff; font-size:.8rem; font-weight:800; display:none; align-items:center; justify-content:center; }
+.thumb { position:relative; aspect-ratio:16/9; margin:-4px -4px 10px; border-radius:10px; overflow:hidden; background:#eef2f7; border:1px solid #e5e9f0; }
+.thumb img { width:100%; height:100%; object-fit:contain; display:block; background:#fff; }
+.thumb .ph { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:.74rem; color:#9ca3af; font-weight:600; }
+.thumb.loading .ph::before { content:''; width:18px; height:18px; border:2.5px solid #d1d9e4; border-top-color:#94a3b8; border-radius:50%; animation:spin .8s linear infinite; }
+.thumb .zoom { position:absolute; right:6px; bottom:6px; border:none; background:rgba(15,23,42,.72); color:#fff; font-size:.7rem; font-weight:700; padding:4px 9px; border-radius:999px; cursor:zoom-in; font-family:inherit; }
+.thumb .zoom:hover { background:rgba(15,23,42,.9); }
+.check { z-index:2; position:absolute; top:10px; right:10px; width:24px; height:24px; border-radius:50%; background:var(--accent); color:#fff; font-size:.8rem; font-weight:800; display:none; align-items:center; justify-content:center; }
 .ppt-card.selected .check { display:flex; }
 
 /* vote bar */
@@ -445,6 +451,7 @@ function renderVote(){
       const self = p.self && !state.allowSelf;
       return `<div class="ppt-card ${sel?'selected':''} ${self?'self':''} ${closed&&!self?'readonly':''}" data-no="${esc(p.no)}" onclick="toggle('${esc(p.no)}')" role="button" tabindex="${self?-1:0}" aria-pressed="${sel}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggle('${esc(p.no)}')}">
         <div class="check">✓</div>
+        <div class="thumb ${p.hasPdf?'loading':'none'}" data-thumb="${esc(p.no)}">${thumbHtml(p)}</div>
         <div class="card-no">No.${esc(p.no)}</div>
         <div class="card-name">${esc(p.name)}<span class="chip ${self?'me':orgClass(p.org)}">${self?'본인':esc(p.org)}</span></div>
         <button class="view-btn" onclick="event.stopPropagation();openPreview('${esc(p.no)}')" ${p.hasPdf?'':'disabled'}>${p.hasPdf?'자료 보기':'자료 없음'}</button>
@@ -458,6 +465,42 @@ function renderVote(){
   $('vote-closed').classList.toggle('hidden', !closed);
   $('vote-guide').textContent = closed ? '투표가 마감되었습니다.' : '카드를 눌러 선택하고, ‘자료 보기’로 발표 자료를 확인할 수 있습니다.';
   renderBar();
+  loadThumbs();
+}
+
+/* ─── 첫 쪽 미리보기 ─── */
+const thumbCache = {};      // no -> dataURL ('' = 없음)
+let thumbQueueRunning = false;
+function thumbHtml(p){
+  if (!p.hasPdf) return '<div class="ph">자료 없음</div>';
+  const u = thumbCache[p.no];
+  if (u) return `<img src="${u}" alt="${esc(p.name)} 발표 첫 쪽"><button class="zoom" onclick="event.stopPropagation();openPreview('${esc(p.no)}')" aria-label="${esc(p.name)} 발표 자료 크게 보기">🔍 크게</button>`;
+  return '<div class="ph"></div>';
+}
+function paintThumb(no){
+  document.querySelectorAll(`[data-thumb="${CSS.escape(String(no))}"]`).forEach(el=>{
+    const p=presenter(no); if(!p) return;
+    el.classList.remove('loading');
+    if (thumbCache[no]==='' ) { el.innerHTML='<div class="ph">자료 보기로 확인</div>'; return; }
+    el.innerHTML=thumbHtml(p);
+  });
+}
+async function loadThumbs(){
+  if (thumbQueueRunning || !state) return;
+  thumbQueueRunning = true;
+  const queue = state.presenters.filter(p=>p.hasPdf && thumbCache[p.no]===undefined).map(p=>String(p.no));
+  const worker = async ()=>{
+    while (queue.length && token){
+      const no = queue.shift();
+      try {
+        const r = await api('thumb', { token, no });
+        thumbCache[no] = r.data ? `data:${r.mime||'image/png'};base64,${r.data}` : '';
+      } catch(e){ thumbCache[no] = ''; }
+      paintThumb(no);
+    }
+  };
+  try { await Promise.all([worker(), worker(), worker(), worker()]); }
+  finally { thumbQueueRunning = false; }
 }
 
 function toggle(no){
